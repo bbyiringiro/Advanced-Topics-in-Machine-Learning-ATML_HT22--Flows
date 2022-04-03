@@ -108,7 +108,7 @@ class NormalisingFlowModel(nn.Module):
                flow_layers_num: int,
                flow_type: str,
                act=torch.tanh, latent_size =40, maxout_window_size=4):
-      super(NormalisingFlowModel, self).__init__()
+      super().__init__()
 
       self.encoder = Encoder(dim_input, e_hidden_dims, latent_size = latent_size, maxout_window_size=maxout_window_size)
       self.flow = FlowModule(latent_size, num_layers=flow_layers_num, flow_type=flow_type)
