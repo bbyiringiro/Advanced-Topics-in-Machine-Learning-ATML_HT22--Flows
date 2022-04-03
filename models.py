@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 from flows import *
 
+from typing import List
+
 class FlowModule(nn.Module):
   def __init__(self, dim_input:int, num_layers: int, flow_type:str ='Planar'):
     super(FlowModule, self).__init__()
