@@ -36,7 +36,7 @@ class Encoder(nn.Module):
         elif non_linearity == "ReLU":
             for i in range(len(hidden_dims) - 1):
               self.layers.append(nn.Linear(hidden_dims[i], hidden_dims[i+1]))
-              self.layers.append(nn.ReLU)
+              self.layers.append(nn.ReLU())
 
             self.fc_mean = nn.Linear(hidden_dims[-1], self.latent_size)
             self.fc_var = nn.Linear(hidden_dims[-1], self.latent_size)
@@ -79,6 +79,7 @@ class Decoder(nn.Module):
         elif non_linearity == "ReLU":
           for i in range(len(hidden_dims) - 1):
             self.layers.append(nn.Linear(hidden_dims[i], hidden_dims[i+1]))
+            self.layers.append(nn.ReLU())
           self.layers.append(nn.Linear(hidden_dims[-1], out_dim))
 
         else:
