@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader
 # this is the same as the forward and loss from above, but it isn't  summed
 # TODO: use the forward function from above
 def compute_log_likelihood(x, model):
-    mu, log_var = model.encoder(x)
+    mu, log_var, _ = model.encoder(x)
     # Reparameterise to sample z_o
     z_o = model.reparameterize(mu, log_var)
 
