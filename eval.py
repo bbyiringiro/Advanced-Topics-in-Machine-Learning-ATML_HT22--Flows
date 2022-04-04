@@ -63,7 +63,7 @@ class BinaryTransform():
     def __call__(self, x):
         return (x > self.threshold).type(x.type())
 
-def BinaryMNIST(batch_size):
+def BinaryMNIST(batch_size=100):
     train_dataset = datasets.MNIST('./data', train=True, download=True,
                    transform=transforms.Compose([
                        transforms.ToTensor(),BinaryTransform()]))
@@ -71,6 +71,57 @@ def BinaryMNIST(batch_size):
     test_dataset = datasets.MNIST('./data', train=False, download=True,
                       transform=transforms.Compose([
                           transforms.ToTensor(),BinaryTransform()]))
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+
+    return train_loader, test_loader
+    
+ class RangeTransform():
+    def __init__(self, eps=0.0001, max_val = 255):
+        self.eps = eps
+        self.range = 1 - eps * 2
+        self.max_val = max_val
+
+    def __call__(self, x):
+        return (self.eps + self.range * (x / max_val)).type(torch.float)
+        
+ def CIFAR10(batch_size=100):
+    train_dataset = datasets.CIFAR10('./data', train=True, download=True,
+                   transform=transforms.Compose([
+                       transforms.ToTensor(),RangeTransform()]))
+
+    test_dataset = datasets.CIFAR10('./data', train=False, download=True,
+                      transform=transforms.Compose([
+                          transforms.ToTensor(),RangeTransform()]))
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+
+    return train_loader, test_loader
+ 
+ def SVHN(batch_size=100):
+    train_dataset = datasets.SVHN('./data', train=True, download=True,
+                   transform=transforms.Compose([
+                       transforms.ToTensor(),RangeTransform()]))
+
+    test_dataset = datasets.SVHN('./data', train=False, download=True,
+                      transform=transforms.Compose([
+                          transforms.ToTensor(),RangeTransform()]))
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+
+    return train_loader, test_loader
+ 
+ def FashionMNIST(batch_size=100):
+    train_dataset = datasets.FashionMNIST('./data', train=True, download=True,
+                   transform=transforms.Compose([
+                       transforms.ToTensor()]))
+
+    test_dataset = datasets.FashionMNIST('./data', train=False, download=True,
+                      transform=transforms.Compose([
+                          transforms.ToTensor()]))
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
