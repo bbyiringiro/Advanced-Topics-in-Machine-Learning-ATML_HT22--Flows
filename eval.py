@@ -77,7 +77,7 @@ def BinaryMNIST(batch_size=100):
 
     return train_loader, test_loader
     
- class RangeTransform():
+class RangeTransform():
     def __init__(self, eps=0.0001, max_val = 255):
         self.eps = eps
         self.range = 1 - eps * 2
@@ -86,7 +86,7 @@ def BinaryMNIST(batch_size=100):
     def __call__(self, x):
         return (self.eps + self.range * (x / max_val)).type(torch.float)
         
- def CIFAR10(batch_size=100):
+def CIFAR10(batch_size=100):
     train_dataset = datasets.CIFAR10('./data', train=True, download=True,
                    transform=transforms.Compose([
                        transforms.ToTensor(),RangeTransform()]))
@@ -100,7 +100,7 @@ def BinaryMNIST(batch_size=100):
 
     return train_loader, test_loader
  
- def SVHN(batch_size=100):
+def SVHN(batch_size=100):
     train_dataset = datasets.SVHN('./data', train=True, download=True,
                    transform=transforms.Compose([
                        transforms.ToTensor(),RangeTransform()]))
@@ -114,7 +114,7 @@ def BinaryMNIST(batch_size=100):
 
     return train_loader, test_loader
  
- def FashionMNIST(batch_size=100):
+def FashionMNIST(batch_size=100):
     train_dataset = datasets.FashionMNIST('./data', train=True, download=True,
                    transform=transforms.Compose([
                        transforms.ToTensor()]))
