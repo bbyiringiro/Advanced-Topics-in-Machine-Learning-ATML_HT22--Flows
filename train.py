@@ -17,7 +17,7 @@ import torch.optim as optim
 def logit_normal_observation_likelihood(x, mus):
     logits = torch.log(x / (1-x))
     log_norm_lik = torch.sum(Normal(mus, 1.).log_prob(logits) - torch.log(x * (1 - x)), axis=1)
-    return log_norm_lik
+    return -log_norm_lik
 
 # Annealed version ELBO with where Bt = min(1, 0.01 + t / 10000)
 def annealed_ELBO(x, recon, log_p_zo, log_p_zk, log_det_sum, binary, beta_t=1.):
