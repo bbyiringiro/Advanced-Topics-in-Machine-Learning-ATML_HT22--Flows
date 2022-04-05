@@ -41,13 +41,13 @@ def compute_log_likelihood(x, model):
     return -torch.sum(F.binary_cross_entropy(x_hat, x, reduction='none'), axis=-1) + log_p_zk - log_qk_zk
 
 # Importance sample to estimate the average -log p(x) in the dataset
-def estimate_marginal_likelihood(num_samples, data_loader, model, D, device):
+def estimate_marginal_likelihood(num_samples, data_loader, model, device):
     
     estimator = .0
     for x, _ in data_loader:
-        x = x.view(-1, D).to(device)
         batch_size = x.shape[0]
-        
+        x = x.flatten(1).to(device)
+
         s = torch.zeros(batch_size).to(device).double()
         for _ in range(num_samples):
           log_likelihood = compute_log_likelihood(x, model).double()
