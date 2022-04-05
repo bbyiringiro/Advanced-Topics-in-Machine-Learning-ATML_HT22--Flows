@@ -9,11 +9,13 @@ from torchvision import datasets
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 
+from train import logit_normal_observation_likelihood
+
 # ----- Eval Criteria -----
 
 # Computes the log-likelihood estimator for one batch of samples
 # This is similar to ELBO, but it isn't summed
-def compute_log_likelihood(x, model):
+def compute_log_likelihood(x, model, binary):
 
     # Approximate mu and log-variance of initial posterior density q0(z0|x)
     mu, log_var, _ = model.encoder(x)
@@ -37,11 +39,16 @@ def compute_log_likelihood(x, model):
     # Calculate qk(zk) ie the likelihood of sampling zk from the final (post-flow) density
     log_qk_zk = log_q0_zo - log_det_sum 
 
+    if binary:
+        CE = torch.sum(F.binary_cross_entropy(x_hat, x, reduction='none'), axis=-1)
+    else:
+        CE = logit_normal_observation_likelihood(x, x_hat)
+
     # final log likelihood
-    return -torch.sum(F.binary_cross_entropy(x_hat, x, reduction='none'), axis=-1) + log_p_zk - log_qk_zk
+    return -CE + log_p_zk - log_qk_zk
 
 # Importance sample to estimate the average -log p(x) in the dataset
-def estimate_marginal_likelihood(num_samples, data_loader, model, device):
+def estimate_marginal_likelihood(num_samples, data_loader, binary, model, device):
     
     estimator = .0
     for x, _ in data_loader:
@@ -50,7 +57,7 @@ def estimate_marginal_likelihood(num_samples, data_loader, model, device):
 
         s = torch.zeros(batch_size).to(device).double()
         for _ in range(num_samples):
-          log_likelihood = compute_log_likelihood(x, model).double()
+          log_likelihood = compute_log_likelihood(x, model, binary).double()
           s += torch.exp(log_likelihood) 
 
         estimator += torch.sum(torch.log(s / num_samples)).item()

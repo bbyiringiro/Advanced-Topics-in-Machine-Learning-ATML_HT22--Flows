@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from flows import *
 from torch.autograd import Variable
+from torch.distributions.normal import Normal
 import math
 
 from typing import List
@@ -268,13 +269,10 @@ class NormalisingFlowModelVAE(nn.Module):
 
 
     stddev = torch.exp(log_var/2)
-    logp_zo = torch.sum(-0.5 * torch.log(torch.tensor(2 * math.pi)) - log_var/2 - 0.5 * ((z_o - mu) / stddev) ** 2, axis=1)
-    # logp_zo = Normal(mu, torch.exp((0.5 * log_var))).log_prob(z_o)
-    
-    logp_zk = torch.sum(-0.5 * (torch.log(torch.tensor(2 * math.pi)) + z_k ** 2), axis=1)
-    # logp_zk = torch.sum(Normal(0., 1.).log_prob(z_k)
+    logq0_zo = torch.sum(Normal(mu, torch.exp((0.5 * log_var))).log_prob(z_o), axis=1)
 
+    logp_zk = torch.sum(Normal(0., 1.).log_prob(z_k), axis=1)
 
-    return recon, logp_zo, logp_zk, log_det_sum
+    return recon, logq0_zo, logp_zk, log_det_sum
 
 
