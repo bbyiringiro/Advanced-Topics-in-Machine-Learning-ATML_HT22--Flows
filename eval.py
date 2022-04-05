@@ -9,9 +9,12 @@ from torchvision import datasets
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 
-from train import logit_normal_observation_likelihood
-
 # ----- Eval Criteria -----
+
+def logit_normal_observation_likelihood(x, mus):
+    logits = torch.log(x / (1-x))
+    log_norm_lik = torch.sum(Normal(mus, 1.).log_prob(logits) - torch.log(x * (1 - x)), axis=1)
+    return log_norm_lik
 
 # Computes the log-likelihood estimator for one batch of samples
 # This is similar to ELBO, but it isn't summed

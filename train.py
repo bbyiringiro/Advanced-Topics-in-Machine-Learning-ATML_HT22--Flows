@@ -11,13 +11,8 @@ from torch.utils.data import DataLoader
 
 from utils import save_model, load_model
 from models import NormalisingFlowModelVAE
-from eval import estimate_marginal_likelihood
+from eval import estimate_marginal_likelihood, logit_normal_observation_likelihood
 import torch.optim as optim
-
-def logit_normal_observation_likelihood(x, mus):
-    logits = torch.log(x / (1-x))
-    log_norm_lik = torch.sum(Normal(mus, 1.).log_prob(logits) - torch.log(x * (1 - x)), axis=1)
-    return log_norm_lik
 
 # Annealed version ELBO with where Bt = min(1, 0.01 + t / 10000)
 def annealed_ELBO(x, recon, log_p_zo, log_p_zk, log_det_sum, binary, beta_t=1.):
@@ -81,7 +76,8 @@ def test(model, testing_loader, binary, device, print_progress=False):
 
     return total_loss
     
-def train_and_test(name, tr_loader, test_loader, settings, device, print_freq=25):
+def train_and_test(name, tr_loader, test_loader, settings, device,\
+                  print_freq=25, do_not_load=False):
 
     batch_size, optim_lr, rms_prop_momentum, num_training_steps,\
     imp_samples, D, encoder_hidden_dims, decoder_hidden_dims, latent_size,\
@@ -89,7 +85,7 @@ def train_and_test(name, tr_loader, test_loader, settings, device, print_freq=25
     binary = settings
 
     load_check = load_model(name, device)
-    if load_check == False:
+    if do_not_load or load_check == False:
         model = NormalisingFlowModelVAE(dim_input = D,
                   e_hidden_dims = encoder_hidden_dims,
                   d_hidden_dims = decoder_hidden_dims,
