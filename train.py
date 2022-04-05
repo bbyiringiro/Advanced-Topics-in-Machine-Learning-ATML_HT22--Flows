@@ -107,10 +107,10 @@ def train_and_test(name, tr_loader, test_loader, settings, device,\
     else:
         model, optimizer, steps, train_losses, settings = load_check
 
-        batch_size, optim_lr, rms_prop_momentum, num_training_steps,\
+        batch_size, optim_lr, rms_prop_momentum, _,\
         imp_samples, D, encoder_hidden_dims, decoder_hidden_dims, latent_size,\
         maxout_window_size, non_linearity, optim_type, flow_type, num_flow_blocks, binary = settings
-
+        
         print(f"Loaded saved model. Restarting training from step {steps}.")
 
     epoch = 0
@@ -133,6 +133,6 @@ def train_and_test(name, tr_loader, test_loader, settings, device,\
     marg_log_lik = estimate_marginal_likelihood(imp_samples, test_loader, binary, model, device)
     print(f"Marginal log likelihood: {marg_log_lik:.2f}")
 
-    save_model(name, model, optimizer, steps, train_losses, settings)
+    save_model(name, model, optimizer, num_training_steps, train_losses, settings)
 
     return marg_log_lik, test_loss, train_losses, model
