@@ -36,6 +36,7 @@ class Planar(FlowBlockAbstract):
     f_z = z + u * self.h(w_z_b)
     psi = self.h_derivative(w_z_b) * self.w 
     log_det = torch.log(EPS_L_SAFE + torch.abs(1+ psi@u))
+
     return f_z, log_det
     
 
