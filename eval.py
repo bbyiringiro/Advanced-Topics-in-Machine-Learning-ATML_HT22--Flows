@@ -104,11 +104,13 @@ class RangeTransform():
 def CIFAR10(batch_size=100):
     train_dataset = datasets.CIFAR10('./data', train=True, download=True,
                    transform=transforms.Compose([
-                       transforms.ToTensor(),RangeTransform()]))
+                       transforms.ToTensor(),RangeTransform(),\
+                       transforms.RandomCrop(8)]))
 
     test_dataset = datasets.CIFAR10('./data', train=False, download=True,
                       transform=transforms.Compose([
-                          transforms.ToTensor(),RangeTransform()]))
+                          transforms.ToTensor(),RangeTransform(),\
+                          transforms.RandomCrop(8)]))
 
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
