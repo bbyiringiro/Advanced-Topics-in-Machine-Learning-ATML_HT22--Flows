@@ -17,7 +17,7 @@ import torch.optim as optim
 def logit_normal_observation_likelihood(x, mus):
     logits = torch.log(x / (1-x))
     log_norm_lik = torch.sum(Normal(mus, 1.).log_prob(logits) - torch.log(x * (1 - x)), axis=1)
-    return torch.exp(log_norm_lik)
+    return log_norm_lik
 
 # Annealed version ELBO with where Bt = min(1, 0.01 + t / 10000)
 def annealed_ELBO(x, recon, log_p_zo, log_p_zk, log_det_sum, binary, beta_t=1.):
@@ -63,7 +63,7 @@ def train_epoch(model, optimizer, tr_loader, binary, epoch_num, steps, max_steps
 
     return total_loss, steps
     
-def test(model, testing_loader, device, print_progress=False):
+def test(model, testing_loader, binary, device, print_progress=False):
 
     model.eval()
     total_loss = 0.
@@ -71,7 +71,7 @@ def test(model, testing_loader, device, print_progress=False):
         for i, (x, _) in enumerate(testing_loader):
             x = x.flatten(1).to(device)
             recon, logp_zo, logp_zk, log_det_sum = model(x)
-            loss = annealed_ELBO(x, recon, logp_zo, logp_zk, log_det_sum )
+            loss = annealed_ELBO(x, recon, logp_zo, logp_zk, log_det_sum, binary )
             total_loss += loss.detach().item()
 
     total_loss /= len(testing_loader.dataset)
@@ -128,13 +128,13 @@ def train_and_test(name, tr_loader, test_loader, settings, device, print_freq=25
       epoch += 1
       if (epoch % print_freq == 0):
           print(f"==> {steps} steps; train loss: {train_loss:.2f}")
-          #test_loss = test(model, test_loader, device)
+          #test_loss = test(model, test_loader, binary, device)
           #print(f"\t\t test loss: {test_loss:.2f}")
           save_model(name, model, optimizer, steps, train_losses, settings)
 
-    test_loss = test(model, test_loader, device)
+    test_loss = test(model, test_loader, binary, device)
     print(f"Final test loss: {test_loss:.2f}")
-    marg_log_lik = estimate_marginal_likelihood(imp_samples, test_loader, model, device)
+    marg_log_lik = estimate_marginal_likelihood(imp_samples, test_loader, binary, model, device)
     print(f"Marginal log likelihood: {marg_log_lik:.2f}")
 
     save_model(name, model, optimizer, steps, train_losses, settings)
