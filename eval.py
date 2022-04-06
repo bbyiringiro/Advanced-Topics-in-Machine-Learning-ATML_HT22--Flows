@@ -58,15 +58,15 @@ def estimate_marginal_likelihood(num_samples, data_loader, binary, model, device
         batch_size = x.shape[0]
         x = x.flatten(1).to(device)
 
-        s = []
+        s = torch.zeros(batch_size).to(device).double()
         for _ in range(num_samples):
           log_likelihood = compute_log_likelihood(x, model, binary).double()
-          s.append(log_likelihood.detach().cpu().numpy()) 
-          
-        estimator += np.sum(np.mean(s, 0))
+          s += torch.exp(log_likelihood) 
+
+        estimator += torch.sum(torch.log(s / num_samples)).item()
 
     return -(estimator / len(data_loader.dataset))
-
+    
 # ----- End Eval Criteria -----
 
 # ----- Datasets -----
