@@ -62,7 +62,7 @@ def estimate_marginal_likelihood(num_samples, data_loader, binary, model, device
         for _ in range(num_samples):
           log_likelihood = compute_log_likelihood(x, model, binary).double()
           s.append(log_likelihood.detach().cpu().numpy()) 
-
+          
         estimator += np.sum(np.mean(s, 0))
 
     return -(estimator / len(data_loader.dataset))
@@ -72,11 +72,8 @@ def estimate_marginal_likelihood(num_samples, data_loader, binary, model, device
 # ----- Datasets -----
 
 class BinaryTransform():
-    def __init__(self, threshold=0.5):
-        self.threshold = threshold
-
     def __call__(self, x):
-        return (x > self.threshold).type(x.type())
+        return torch.bernoulli(x)
 
 def BinaryMNIST(batch_size=100):
     train_dataset = datasets.MNIST('./data', train=True, download=True,
