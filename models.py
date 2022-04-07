@@ -93,11 +93,14 @@ class Decoder(nn.Module):
 
 class FlowModule(nn.Module):
   def __init__(self, dim_input:int, num_layers: int,
-              encoder_out_dim = None, flow_type:str ='Planar'):
+              encoder_out_dim = 40, flow_type:str ='Planar'):
     super(FlowModule, self).__init__()
     
     flow_block_class = None
     self.flow_type = flow_type
+    self.num_flows = num_layers
+    self.z_size =dim_input;
+
     try:
       flow_block_class = globals()[flow_type]
     except (KeyError):
@@ -106,6 +109,24 @@ class FlowModule(nn.Module):
     if(flow_type=='Planar'):
       Planar=flow_block_class
       self.flows = nn.ModuleList([Planar(dim_input,) for _ in range(num_layers)])
+    elif (flow_type=='PlanarV2'):
+      self.q_z_nn_output_dim = encoder_out_dim;
+      PlanarV2=flow_block_class
+      self.flows = nn.ModuleList([PlanarV2() for _ in range(num_layers)])
+
+
+
+      # Amortized flow parameters
+      self.amor_u = nn.Linear(self.q_z_nn_output_dim, self.num_flows * self.z_size)
+      self.amor_w = nn.Linear(self.q_z_nn_output_dim, self.num_flows * self.z_size)
+      self.amor_b = nn.Linear(self.q_z_nn_output_dim, self.num_flows)
+
+
+
+
+
+
+
     elif (flow_type=='Radial'):
       Radial=flow_block_class
       self.flows = nn.ModuleList([Radial(dim_input,) for _ in range(num_layers)])
@@ -118,8 +139,6 @@ class FlowModule(nn.Module):
       # the following for TriangularSylvester is adapted from the orginal paper publication from:
       #https://github.com/riannevdberg/sylvester-flows
       # self.flip_idx
-      self.z_size =dim_input;
-      self.num_flows = num_layers
       self.q_z_nn_output_dim = encoder_out_dim;
 
 
@@ -188,28 +207,51 @@ class FlowModule(nn.Module):
     return r1, r2, b
 
 
+  def getPlanarParameters(self, h):
+    batch_size = h.size(0)
+
+
+    h = h.view(-1, self.q_z_nn_output_dim)
+    # return amortized u an w for all flows
+    u = self.amor_u(h).view(batch_size, self.num_flows, self.z_size, 1)
+    w = self.amor_w(h).view(batch_size, self.num_flows, 1, self.z_size)
+    b = self.amor_b(h).view(batch_size, self.num_flows, 1, 1)
+
+    return u, w, b
+
+
+
+
   def forward(self, zo, h=None):
     log_det_sum = 0.
     zk=zo
-    if(self.flow_type != "TriangularSylvester"):
-      for flow_block in self.flows:
-        zk, log_det = flow_block(zk)
-        log_det_sum +=log_det
-    else:
+    if(self.flow_type == "TriangularSylvester"):
 
       #get amortise  r1, r2, b for all flows
-       r1, r2, b = self.sylvgetMortisedParameters(h)
+      r1, r2, b = self.sylvgetMortisedParameters(h)
 
 
-       for k, flow_block in enumerate(self.flows):
+      for k, flow_block in enumerate(self.flows):
           if k % 2 == 1:
               permute_z = self.flip_idx
           else:
               permute_z = None
 
-          z_k, log_det_sum = flow_block(zk, r1[:, :, :, k], r2[:, :, :, k], b[:, :, :, k], permute_z, sum_ldj=True)
+          zk, log_det_sum = flow_block(zk, r1[:, :, :, k], r2[:, :, :, k], b[:, :, :, k], permute_z, sum_ldj=True)
 
           log_det_sum += log_det_sum
+    elif (self.flow_type =="PlanarV2"):
+      u, w, b = self.getPlanarParameters(h)
+      for k in range(self.num_flows):
+            u, w, b = self.getPlanarParameters(h)
+            zk, log_det_jacobian = self.flows[k](zk, u[:, k, :, :], w[:, k, :, :], b[:, k, :, :])
+            log_det_sum += log_det_jacobian
+    else:
+      for flow_block in self.flows:
+        zk, log_det = flow_block(zk)
+        log_det_sum +=log_det
+
+
     return zk, log_det_sum
 
 
@@ -221,7 +263,7 @@ class NormalisingFlowModelVAE(nn.Module):
                flow_layers_num: int,
                flow_type: str,
                non_linearity: str = "MaxOut",
-               latent_size=40, maxout_window_size=4, encoder_out_dim=400):
+               latent_size=40, maxout_window_size=4, encoder_out_dim=100):
     super().__init__()
     self.flow_type = flow_type
     self.encoder = Encoder(dim_input, e_hidden_dims,
@@ -258,7 +300,7 @@ class NormalisingFlowModelVAE(nn.Module):
 
     # pass zo through the flows to get zk
 
-    if(self.flow_type == "TriangularSylvester"):
+    if(self.flow_type == "TriangularSylvester" or self.flow_type=="PlanarV2"):
       z_k, log_det_sum = self.flow(z_o, h=h)
     else:
       z_k, log_det_sum = self.flow(z_o)
