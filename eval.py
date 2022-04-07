@@ -44,11 +44,26 @@ def compute_log_likelihood(x, model, binary):
 
     if binary:
         CE = torch.sum(F.binary_cross_entropy(x_hat, x, reduction='none'), axis=-1)
+        # CE = - torch.sum(log_bernoulli(x.view(100, -1), x_hat.view(100, -1), dim=1))
     else:
         CE = logit_normal_observation_likelihood(x, x_hat)
 
     # final log likelihood
     return -CE + log_p_zk - log_qk_zk
+
+MIN_EPSILON = 1e-5
+MAX_EPSILON = 1.-1e-5
+def log_bernoulli(x, mean, average=False, reduce=True, dim=None):
+    probs = torch.clamp(mean, min=MIN_EPSILON, max=MAX_EPSILON)
+    log_bern = x * torch.log(probs) + (1. - x) * torch.log(1. - probs)
+    if reduce:
+        if average:
+            return torch.mean(log_bern, dim)
+        else:
+            # print(log_bern.shape)
+            return torch.sum(log_bern, dim)
+    else:
+        return log_bern
 
 # Importance sample to estimate the average -log p(x) in the dataset
 def estimate_marginal_likelihood(num_samples, data_loader, binary, model, device):
@@ -74,6 +89,23 @@ def estimate_marginal_likelihood(num_samples, data_loader, binary, model, device
 class BinaryTransform():
     def __call__(self, x):
         return torch.bernoulli(x)
+
+class StaticBinaryTransform():
+    def __init__(self, threshold=0.5):
+        self.threshold = threshold
+
+    def __call__(self, x):
+        return (x > self.threshold).type(x.type())
+
+transform = BinaryTransform()
+train_dataset = datasets.MNIST('./data', train=True, download=True,
+                   transform=transforms.Compose([
+                       transforms.ToTensor(),transform]))
+
+test_dataset = datasets.MNIST('./data', train=False, download=True,
+                   transform=transforms.Compose([
+                       transforms.ToTensor(),transform]))
+
 
 def BinaryMNIST(batch_size=100):
     train_dataset = datasets.MNIST('./data', train=True, download=True,
