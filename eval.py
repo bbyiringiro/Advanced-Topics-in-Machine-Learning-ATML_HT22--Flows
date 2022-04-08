@@ -21,14 +21,14 @@ def logit_normal_observation_likelihood(x, mus):
 def compute_log_likelihood(x, model, binary):
 
     # Approximate mu and log-variance of initial posterior density q0(z0|x)
-    mu, log_var, _ = model.encoder(x)
+    mu, log_var, h = model.encoder(x)
     stddev = torch.exp(log_var/2)
 
     # Reparameterise to sample z0 from posterior q0(z0|x)
     z_o = model.reparameterize(mu, log_var)
 
     # Pass z0 through the flows to get zk
-    z_k, log_det_sum = model.flow(z_o)
+    z_k, log_det_sum = model.flow(z_o, h)
 
     # Decode x_hat, ie estimate mu of likelihood p(x|zk)
     x_hat = model.decoder(z_k)
