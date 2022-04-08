@@ -1,5 +1,7 @@
 # PyTorch implementation of NICE
 
+Pulled from: https://github.com/DakshIdnani/pytorch-nice
+
 Original paper:
   > [NICE: Non-linear Independent Components Estimation](https://arxiv.org/abs/1410.8516)\
   > Laurent Dinh, David Krueger, Yoshua Bengio
