@@ -1,141 +1,52 @@
-import numpy as np
+import os
 import torch
-from torch.nn import functional as F
-import math
-from torch.distributions.normal import Normal
-
-from torch.utils.data import random_split,Dataset
-from torchvision import datasets
-import torchvision.transforms as transforms
-from torch.utils.data import DataLoader
-
-from utils import save_model, load_model
-from models import NormalisingFlowModelVAE
-from eval import estimate_marginal_likelihood, logit_normal_observation_likelihood
 import torch.optim as optim
-from eval import log_bernoulli
+from torchvision import transforms, datasets
 
-# Annealed version ELBO with where Bt = min(1, 0.01 + t / 10000)
-def annealed_ELBO(x, recon, log_p_zo, log_p_zk, log_det_sum, binary, beta_t=1.):
+from config import cfg
+from nice import NICE
 
-    if binary:
-        CE = F.binary_cross_entropy(recon, x, reduction='sum')
-        # CE = - torch.sum(log_bernoulli(x.view(100, -1), recon.view(100, -1), dim=1))
-        
-    else:
-        CE = torch.sum(logit_normal_observation_likelihood(x, recon))
-    log_p_x_zk = (torch.sum(log_p_zk, -1) - CE)
+# Data
+transform = transforms.ToTensor()
+dataset = datasets.MNIST(root='./data/mnist', train=True, transform=transform, download=True)
+dataloader = torch.utils.data.DataLoader(dataset=dataset, batch_size=cfg['TRAIN_BATCH_SIZE'],
+                                         shuffle=True, pin_memory=True)
 
-    F_bt = torch.sum(log_p_zo, -1) - beta_t * log_p_x_zk
-    # happens if k=0
-    if type(log_det_sum) != float:
-       F_bt -= torch.sum(log_det_sum.view(-1))
-    return F_bt
-  
-def train_epoch(model, optimizer, tr_loader, binary, epoch_num, steps, max_steps, device, print_progress=False):
+model = NICE(data_dim=784, num_coupling_layers=cfg['NUM_COUPLING_LAYERS'])
+if cfg['USE_CUDA']:
+  device = torch.device('cuda')
+  model = model.to(device)
 
-    model.train()
-    total_loss = 0.
-    for batch_idx, (x, _) in enumerate(tr_loader):
-        if steps > max_steps - 1:
-            return total_loss, -1
+# Train the model
+model.train()
 
-        # convert x to shape [batch x input_size]
-        x = x.flatten(1).to(device)
+opt = optim.Adam(model.parameters())
 
-        optimizer.zero_grad()
-        recon, logp_zo, logp_zk, log_det_sum = model(x)
-        
-        anneling_beta_t = min(1., 0.01 + steps / 10000)
-        loss = annealed_ELBO(x, recon, logp_zo, logp_zk, log_det_sum, binary, beta_t=anneling_beta_t)
+for i in range(cfg['TRAIN_EPOCHS']):
+  mean_likelihood = 0.0
+  num_minibatches = 0
 
-        loss.backward()
-        optimizer.step()
+  for batch_id, (x, _) in enumerate(dataloader):
+      x = x.view(-1, 784) + torch.rand(784) / 256.
+      if cfg['USE_CUDA']:
+        x = x.cuda()
 
-        total_loss += loss.detach().item()
-        steps += 1
+      x = torch.clamp(x, 0, 1)
 
-    total_loss /= len(tr_loader.dataset)
-    if print_progress:
-        print(f"==> Epoch: {epoch_num} Average loss: {(total_loss):.2f}")
+      z, likelihood = model(x)
+      loss = -torch.mean(likelihood)   # NLL
 
-    return total_loss, steps
-    
-def test(model, testing_loader, binary, device, print_progress=False):
+      loss.backward()
+      opt.step()
+      model.zero_grad()
 
-    model.eval()
-    total_loss = 0.
-    with torch.no_grad():
-        for i, (x, _) in enumerate(testing_loader):
-            x = x.flatten(1).to(device)
-            recon, logp_zo, logp_zk, log_det_sum = model(x)
-            loss = annealed_ELBO(x, recon, logp_zo, logp_zk, log_det_sum, binary )
-            total_loss += loss.detach().item()
+      mean_likelihood -= loss
+      num_minibatches += 1
 
-    total_loss /= len(testing_loader.dataset)
+  mean_likelihood /= num_minibatches
+  print('Epoch {} completed. Log Likelihood: {}'.format(i, mean_likelihood))
 
-    if print_progress:
-      print(f"==> Test loss: {total_loss:.2f}")
+  if epoch % 5 == 0:
+    save_path = os.path.join(cfg['MODEL_SAVE_PATH'], '{}.pt'.format(epoch))
+    torch.save(model.state_dict(), save_path)
 
-    return total_loss
-    
-def train_and_test(name, tr_loader, test_loader, settings, device,\
-                  print_freq=25, do_not_load=False):
-
-    batch_size, optim_lr, rms_prop_momentum, num_training_steps,\
-    imp_samples, D, encoder_hidden_dims, decoder_hidden_dims, latent_size,\
-    maxout_window_size, non_linearity, optim_type, flow_type, num_flow_blocks,\
-    binary = settings
-
-    load_check = load_model(name, device)
-    if do_not_load or load_check == False:
-        model = NormalisingFlowModelVAE(dim_input = D,
-                  e_hidden_dims = encoder_hidden_dims,
-                  d_hidden_dims = decoder_hidden_dims,
-                  flow_layers_num=num_flow_blocks,
-                  non_linearity=non_linearity,
-                  latent_size=latent_size,
-                  maxout_window_size = maxout_window_size,
-                  flow_type=flow_type,
-                  ).to(device)
-
-        model.train()
-        if optim_type == "Adam":
-          optimizer = optim.Adam(model.parameters())
-        else:
-          optimizer = optim.RMSprop(model.parameters(), lr=optim_lr, momentum=rms_prop_momentum)
-        steps = 0
-        train_losses = []
-        save_model(name, model, optimizer, steps, train_losses, settings)
-    else:
-        model, optimizer, steps, train_losses, settings = load_check
-
-        batch_size, optim_lr, rms_prop_momentum, _,\
-        imp_samples, D, encoder_hidden_dims, decoder_hidden_dims, latent_size,\
-        maxout_window_size, non_linearity, optim_type, flow_type, num_flow_blocks, binary = settings
-        
-        print(f"Loaded saved model. Restarting training from step {steps}.")
-
-    epoch = 0
-
-    print("Training: ")
-    while steps != -1:
-
-      train_loss, steps = train_epoch(model, optimizer, tr_loader, binary, epoch,\
-                                      steps, num_training_steps, device)
-      train_losses.append(train_loss)
-      epoch += 1
-      if (epoch % print_freq == 0):
-          print(f"==> {steps} steps; train loss: {train_loss:.2f}")
-          #test_loss = test(model, test_loader, binary, device)
-          #print(f"\t\t test loss: {test_loss:.2f}")
-          save_model(name, model, optimizer, steps, train_losses, settings)
-
-    test_loss = test(model, test_loader, binary, device)
-    print(f"Final test loss: {test_loss:.2f}")
-    marg_log_lik = estimate_marginal_likelihood(imp_samples, test_loader, binary, model, device)
-    print(f"Marginal log likelihood: {marg_log_lik:.2f}")
-
-    save_model(name, model, optimizer, num_training_steps, train_losses, settings)
-
-    return marg_log_lik, test_loss, train_losses, model
