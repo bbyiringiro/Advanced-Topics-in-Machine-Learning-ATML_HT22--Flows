@@ -216,17 +216,17 @@ class FlowModule(nn.Module):
           else:
               permute_z = None
 
-          zk, log_det_sum = flow_block(zk, r1[:, :, :, k], r2[:, :, :, k], b[:, :, :, k], permute_z, sum_ldj=True)
+          zk, log_det = flow_block(zk, r1[:, :, :, k], r2[:, :, :, k], b[:, :, :, k], permute_z, sum_ldj=True)
 
-          log_det_sum += log_det_sum
+          log_det_sum += log_det
 
     elif (self.flow_type =="PlanarV2"):
       u, w, b = self.getPlanarParameters(h)
 
       for k in range(self.num_flows):
             u, w, b = self.getPlanarParameters(h)
-            zk, log_det_jacobian = self.flows[k](zk, u[:, k, :, :], w[:, k, :, :], b[:, k, :, :])
-            log_det_sum += log_det_jacobian
+            zk, log_det = self.flows[k](zk, u[:, k, :, :], w[:, k, :, :], b[:, k, :, :])
+            log_det_sum += log_det
 
     else:
       for flow_block in self.flows:
