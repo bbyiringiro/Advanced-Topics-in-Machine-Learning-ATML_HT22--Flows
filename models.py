@@ -7,7 +7,6 @@ import math
 
 from typing import List
 
-
 class Encoder(nn.Module):
     def __init__(self, dim_input: int, hidden_dims: List[int],
                 non_linearity: str = "MaxOut",
@@ -65,7 +64,7 @@ class Decoder(nn.Module):
 
         self.layers = []
         if non_linearity == "MaxOut":
-          first = True;
+          first = True
           for i in range(len(hidden_dims) - 1):
             if first:
               self.layers.append(nn.Linear(hidden_dims[i], hidden_dims[i+1]))
@@ -99,7 +98,7 @@ class FlowModule(nn.Module):
     flow_block_class = None
     self.flow_type = flow_type
     self.num_flows = num_layers
-    self.z_size =dim_input;
+    self.z_size = dim_input
 
     try:
       flow_block_class = globals()[flow_type]
@@ -107,40 +106,32 @@ class FlowModule(nn.Module):
       raise ModuleNotFoundError(f"Error: No '{flow_type}' flow type was not found in the scope, import it to make sure is in scope")
 
     if(flow_type=='Planar'):
-      Planar=flow_block_class
+      Planar = flow_block_class
       self.flows = nn.ModuleList([Planar(dim_input,) for _ in range(num_layers)])
+
     elif (flow_type=='PlanarV2'):
-      self.q_z_nn_output_dim = encoder_out_dim;
-      PlanarV2=flow_block_class
+      self.q_z_nn_output_dim = encoder_out_dim
+      PlanarV2 = flow_block_class
       self.flows = nn.ModuleList([PlanarV2() for _ in range(num_layers)])
-
-
 
       # Amortized flow parameters
       self.amor_u = nn.Linear(self.q_z_nn_output_dim, self.num_flows * self.z_size)
       self.amor_w = nn.Linear(self.q_z_nn_output_dim, self.num_flows * self.z_size)
       self.amor_b = nn.Linear(self.q_z_nn_output_dim, self.num_flows)
 
-
-
-
-
-
-
     elif (flow_type=='Radial'):
-      Radial=flow_block_class
+      Radial = flow_block_class
       self.flows = nn.ModuleList([Radial(dim_input,) for _ in range(num_layers)])
-    elif(flow_type=="TriangularSylvester"):
 
+    elif(flow_type=="TriangularSylvester"):
       assert(encoder_out_dim!=None)
       
       self.flows = nn.ModuleList([TriangularSylvester(dim_input,) for _ in range(num_layers)])
 
       # the following for TriangularSylvester is adapted from the orginal paper publication from:
-      #https://github.com/riannevdberg/sylvester-flows
+      # https://github.com/riannevdberg/sylvester-flows
       # self.flip_idx
-      self.q_z_nn_output_dim = encoder_out_dim;
-
+      self.q_z_nn_output_dim = encoder_out_dim
 
        # permuting indices corresponding to Q=P (permutation matrix) for every other flow
       flip_idx = torch.arange(self.z_size - 1, -1, -1).long()
@@ -172,8 +163,6 @@ class FlowModule(nn.Module):
 
       self.amor_b = nn.Linear(self.q_z_nn_output_dim, self.num_flows * self.z_size)
 
-
-
     else:
       raise NotImplementedError
 
@@ -182,13 +171,10 @@ class FlowModule(nn.Module):
     h = h.view(-1, self.q_z_nn_output_dim)
 
     # Amortized r1, r2, q, b for all flows
-
-
     full_d = self.amor_d(h)
     diag1 = self.amor_diag1(h)
     diag2 = self.amor_diag2(h)
 
-    
     full_d = full_d.resize(batch_size, self.z_size, self.z_size, self.num_flows)
     diag1 = diag1.resize(batch_size, self.z_size, self.num_flows)
     diag2 = diag2.resize(batch_size, self.z_size, self.num_flows)
@@ -206,10 +192,8 @@ class FlowModule(nn.Module):
 
     return r1, r2, b
 
-
   def getPlanarParameters(self, h):
     batch_size = h.size(0)
-
 
     h = h.view(-1, self.q_z_nn_output_dim)
     # return amortized u an w for all flows
@@ -219,17 +203,12 @@ class FlowModule(nn.Module):
 
     return u, w, b
 
-
-
-
   def forward(self, zo, h=None):
     log_det_sum = 0.
-    zk=zo
+    zk = zo
     if(self.flow_type == "TriangularSylvester"):
-
-      #get amortise  r1, r2, b for all flows
+      # get amortised r1, r2, b for all flows
       r1, r2, b = self.sylvgetMortisedParameters(h)
-
 
       for k, flow_block in enumerate(self.flows):
           if k % 2 == 1:
@@ -240,20 +219,21 @@ class FlowModule(nn.Module):
           zk, log_det_sum = flow_block(zk, r1[:, :, :, k], r2[:, :, :, k], b[:, :, :, k], permute_z, sum_ldj=True)
 
           log_det_sum += log_det_sum
+
     elif (self.flow_type =="PlanarV2"):
       u, w, b = self.getPlanarParameters(h)
+
       for k in range(self.num_flows):
             u, w, b = self.getPlanarParameters(h)
             zk, log_det_jacobian = self.flows[k](zk, u[:, k, :, :], w[:, k, :, :], b[:, k, :, :])
             log_det_sum += log_det_jacobian
+
     else:
       for flow_block in self.flows:
         zk, log_det = flow_block(zk)
         log_det_sum +=log_det
 
-
     return zk, log_det_sum
-
 
 class NormalisingFlowModelVAE(nn.Module):
   def __init__(self,
@@ -281,7 +261,6 @@ class NormalisingFlowModelVAE(nn.Module):
       # returns a random sample from the approximate posterior q(z|x) 
       eps = torch.randn_like(mu)
       return mu + eps * torch.exp(0.5*logvar) 
-    
 
   # Returns:
   # z: sample from the latent space
@@ -291,30 +270,28 @@ class NormalisingFlowModelVAE(nn.Module):
   # log_det_jacobians: log(partial f/ partial z) terms for the flows
   def forward(self, z):
 
-    #Inference Network
-    #Encode
+    # Approximate mu and log-variance of initial posterior density q0(z0|x)
     mu, log_var, h = self.encoder(z)
-    # Reparameterise to sample z_o
 
+    # Reparameterise to sample z0 from posterior q0(z0|x)
     z_o = self.reparameterize(mu, log_var)
 
-    # pass zo through the flows to get zk
-
+    # Pass z0 through the flows to get zk
     if(self.flow_type == "TriangularSylvester" or self.flow_type=="PlanarV2"):
       z_k, log_det_sum = self.flow(z_o, h=h)
     else:
       z_k, log_det_sum = self.flow(z_o)
 
-    #Generative Model
-    #decode x_hat
-    recon = self.decoder(z_k) # temp, just to test the normal vae
+    # Decode x_hat, ie estimate mu of likelihood p(x|zk)
+    x_hat = self.decoder(z_k)
 
-
+    # Calculate q0(z0) ie likelihood of sampling z0 from the initial posterior
     stddev = torch.exp(log_var/2)
-    logq0_zo = torch.sum(Normal(mu, torch.exp((0.5 * log_var))).log_prob(z_o), axis=1)
+    logq0_zo = torch.sum(Normal(mu, stddev).log_prob(z_o), axis=1)
 
+    # Calculate p(zk)
     logp_zk = torch.sum(Normal(0., 1.).log_prob(z_k), axis=1)
 
-    return recon, logq0_zo, logp_zk, log_det_sum
+    return x_hat, logq0_zo, logp_zk, log_det_sum
 
 

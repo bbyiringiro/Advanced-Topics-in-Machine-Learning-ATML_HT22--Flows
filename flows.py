@@ -2,9 +2,12 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import math
+
 EPS_L_SAFE = 1e-18
+
 def m(x):
   return -1 + torch.log(EPS_L_SAFE + 1 + torch.exp(x))
+
 class FlowBlockAbstract(nn.Module):
   def __init__(self):
     super().__init__()
@@ -16,9 +19,8 @@ class FlowBlockAbstract(nn.Module):
 class Planar(FlowBlockAbstract):
   def __init__(self, dim_num, act=torch.tanh):
     super().__init__()
-    self.dim_num=dim_num
-    
 
+    self.dim_num = dim_num
     self.h = act
     self.h_derivative = lambda x: 1 - (torch.tanh(x) ** 2)
 
@@ -39,9 +41,6 @@ class Planar(FlowBlockAbstract):
 
     return f_z, log_det
 
-
-
-
 class PlanarV2(nn.Module):
     """
     PyTorch implementation of planar flows as presented in "Variational Inference with Normalizing Flows"
@@ -49,7 +48,6 @@ class PlanarV2(nn.Module):
     """
 
     def __init__(self):
-
         super(PlanarV2, self).__init__()
 
         self.h = nn.Tanh()
@@ -93,35 +91,29 @@ class PlanarV2(nn.Module):
         log_det_jacobian = log_det_jacobian.squeeze(2).squeeze(1)
 
         return z, log_det_jacobian
-    
 
-    
-    
-    
 class Radial(FlowBlockAbstract):
   def __init__(self, dim_num, act=torch.tanh, zo_=None):
     super().__init__()
-    self.dim_num=dim_num
 
-    
+    self.dim_num = dim_num
     
     if zo_ is not None:
         self.zo = torch.nn.Parameter(zo_)
     else:
         self.zo = torch.nn.Parameter(torch.randn(dim_num))
+    
     self.alpha_log = torch.nn.Parameter(torch.randn(1)) # since alpha has to be positive R+
     self.beta = torch.nn.Parameter(torch.randn(1))
-    
     
     self.h = lambda alpha,r: 1/(EPS_L_SAFE + alpha+r)
     self.h_derivative = lambda alpha,r: -1/(EPS_L_SAFE + r+alpha) ** 2
     
 
   def forward(self, z):
-    z_diff = z-self.zo
+    z_diff = z - self.zo
     r = torch.linalg.vector_norm(z_diff, dim=-1, keepdim=True)
-    # alpha = torch.exp(self.alpha_log)
-    # alpha = self.alpha_log
+
     alpha = torch.abs(self.alpha_log)
 
     # constraining B to insure invertibility
@@ -134,14 +126,8 @@ class Radial(FlowBlockAbstract):
     
     log_det = (self.dim_num - 1) * torch.log( EPS_L_SAFE + 1 + beta * h_a_r) + torch.log( EPS_L_SAFE + 1 + (beta * h_a_r) + beta *h_a_r_deriv* r )
 
-
     return f_z, log_det
     
-
-
-
-
-
 class TriangularSylvester(nn.Module):
     """
     Adapted from official implementation at https://github.com/riannevdberg/sylvester-flows
@@ -221,8 +207,6 @@ class TriangularSylvester(nn.Module):
 
         return self._forward(zk, r1, r2, q_ortho, b, sum_ldj)
 
-
-
 class InVerseAutoRegressive(FlowBlockAbstract):
   def __init__(self, dim_num, act=torch.tanh):
     super(InVerseAutoRegressive, self).__init__()
@@ -244,5 +228,3 @@ class RealNVP(FlowBlockAbstract):
 
   def forward(self, z):
     raise NotImplementedError
-    
-    

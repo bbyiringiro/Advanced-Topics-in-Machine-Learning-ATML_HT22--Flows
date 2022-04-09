@@ -97,16 +97,6 @@ class StaticBinaryTransform():
     def __call__(self, x):
         return (x > self.threshold).type(x.type())
 
-transform = BinaryTransform()
-train_dataset = datasets.MNIST('./data', train=True, download=True,
-                   transform=transforms.Compose([
-                       transforms.ToTensor(),transform]))
-
-test_dataset = datasets.MNIST('./data', train=False, download=True,
-                   transform=transforms.Compose([
-                       transforms.ToTensor(),transform]))
-
-
 def BinaryMNIST(batch_size=100):
     train_dataset = datasets.MNIST('./data', train=True, download=True,
                    transform=transforms.Compose([
