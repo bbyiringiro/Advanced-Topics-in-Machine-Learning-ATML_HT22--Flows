@@ -89,9 +89,7 @@ class Decoder(nn.Module):
         self.seqNet = nn.Sequential(*self.layers)
 
     def forward(self, x):
-        if self.binary:
-          return torch.sigmoid(self.seqNet(x))
-        return self.seqNet(x)
+        return torch.sigmoid(self.seqNet(x))
 
 class FlowModule(nn.Module):
   def __init__(self, dim_input:int, num_layers: int,
@@ -298,3 +296,4 @@ class NormalisingFlowModelVAE(nn.Module):
     logp_zk = torch.sum(Normal(0., 1.).log_prob(z_k), axis=1)
 
     return x_hat, logq0_zo, logp_zk, log_det_sum
+
