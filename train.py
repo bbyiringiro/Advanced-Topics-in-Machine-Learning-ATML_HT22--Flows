@@ -13,11 +13,10 @@ from utils import save_model, load_model
 from models import NormalisingFlowModelVAE
 from eval import estimate_marginal_likelihood, logit_normal_observation_likelihood
 import torch.optim as optim
-from eval import log_bernoulli
 
 # Annealed version ELBO with where Bt = min(1, 0.01 + t / 10000)
 def annealed_ELBO(x, recon, log_p_zo, log_p_zk, log_det_sum, binary, beta_t=1.):
-    
+
     if binary:
         CE = F.binary_cross_entropy(recon, x, reduction='sum')
     else:
@@ -95,6 +94,7 @@ def train_and_test(name, tr_loader, test_loader, settings, device,\
                   latent_size=latent_size,
                   maxout_window_size = maxout_window_size,
                   flow_type=flow_type,
+                  binary=binary,
                   ).to(device)
 
         model.train()

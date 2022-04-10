@@ -53,12 +53,13 @@ class Encoder(nn.Module):
 
 class Decoder(nn.Module):
     def __init__(self, dim_input: int, out_dim: int, hidden_dims: List[int],
-                non_linearity: str = "MaxOut", maxout_window_size=4):
+                binary, non_linearity: str = "MaxOut", maxout_window_size=4):
         super(Decoder, self).__init__()
 
         assert(len(hidden_dims) >= 1)
 
-        self.maxout_window_size=maxout_window_size
+        self.maxout_window_size = maxout_window_size
+        self.binary = binary
         
         hidden_dims = [dim_input] + hidden_dims
 
@@ -88,7 +89,9 @@ class Decoder(nn.Module):
         self.seqNet = nn.Sequential(*self.layers)
 
     def forward(self, x):
-        return torch.sigmoid(self.seqNet(x))
+        if self.binary:
+          return torch.sigmoid(self.seqNet(x))
+        return self.seqNet(x)
 
 class FlowModule(nn.Module):
   def __init__(self, dim_input:int, num_layers: int,
@@ -243,7 +246,8 @@ class NormalisingFlowModelVAE(nn.Module):
                flow_layers_num: int,
                flow_type: str,
                non_linearity: str = "MaxOut",
-               latent_size=40, maxout_window_size=4, encoder_out_dim=100):
+               latent_size=40, maxout_window_size=4, encoder_out_dim=100,
+               binary=True):
     super().__init__()
     self.flow_type = flow_type
     self.encoder = Encoder(dim_input, e_hidden_dims,
@@ -254,6 +258,7 @@ class NormalisingFlowModelVAE(nn.Module):
                           flow_type = flow_type,
                           encoder_out_dim = encoder_out_dim)
     self.decoder = Decoder(latent_size, dim_input, d_hidden_dims,
+                          binary = binary,
                           non_linearity = non_linearity,
                           maxout_window_size = maxout_window_size)
 
@@ -293,5 +298,3 @@ class NormalisingFlowModelVAE(nn.Module):
     logp_zk = torch.sum(Normal(0., 1.).log_prob(z_k), axis=1)
 
     return x_hat, logq0_zo, logp_zk, log_det_sum
-
-
