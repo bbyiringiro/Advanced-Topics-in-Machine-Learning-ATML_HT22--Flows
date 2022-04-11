@@ -30,6 +30,6 @@ Examples of how to train and evaluate the models are found in the Jupyter notebo
 
 | ![reconstructions of images through the flows](images/recon/recon.png)
 |:--:| 
-| ** |
+| *Original input ${x}$ and the reconstructed $\hat{x}$* |
 
 
